@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi.responses import JSONResponse
-import db_helper
-import generic_helper
+# import db_helper
+# import generic_helper
 
 app = FastAPI()
 
@@ -18,3 +18,8 @@ async def handle_request(request: Request):
     intent = payload['queryResult']['intent']['displayName']
     parameters = payload['queryResult']['parameters']
     output_contexts = payload['queryResult']['outputContexts']
+
+    if intent == "track.order:context-ordertracking":
+        return JSONResponse(content={
+            "fulfillmentText": f"Recieved {intent} in backend"
+        })

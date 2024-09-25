@@ -72,7 +72,7 @@ def remove_order(parameters:dict,session_id:str):
             fulfillment_text = f' Your current order does not have {",".join(no_such_item)}'
 
         if len(current_order.keys()) == 0:
-            fulfillment_text += " Your order is empty!"
+            fulfillment_text += " Your order is empty! Please add"
         else:
             order_str = methods.get_str_from_food_dict(current_order)
             fulfillment_text += f" Here is what is left in your order: {order_str}! Do you want anything else to add"

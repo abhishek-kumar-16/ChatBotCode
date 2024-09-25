@@ -22,7 +22,7 @@ async def handle_request(request: Request):
     intent_dict={
         'order.add:ongoing-order': addOrder,
     # 'order.remove - context: ongoing-order': remove_from_order,
-    # 'order.complete - context: ongoing-order': complete_order,
+    'order.complete:context:ongoing-order': complete_order,
     'track.order:context-ordertracking': trackOrder
     }
 
@@ -51,7 +51,37 @@ def addOrder(parameter:dict,sessionId:str):
     })
 
 def complete_order(parameters:dict,session_id:str):
-    
+    if session_id not in inprogress_orders:
+        fulfillment_text=f"Please select items to place order"
+    else:
+        order=inprogress_orders[session_id]
+        order_id=save_to_db(order)
+        if order_id ==-1:
+            fulfillment_text=f"Sorry Internal Database Error"
+        else:
+            totalAmount=db_api.get_total_bill(order_id)
+            fulfillment_text=(f"Yeah Your order is placed with order ID is {order_id} and "
+                              f"the total amount is {totalAmount}")
+
+    del inprogress_orders[session_id]
+    return JSONResponse(content={
+        "fulfillmentText": fulfillment_text
+    })
+
+
+def save_to_db(order:dict):
+    next_order_id=db_api.get_next_order_id()
+    for food_item,quantity in order.items():
+        result=db_api.insert_order(
+            food_item,
+            quantity,
+            next_order_id
+        )
+        if result==-1:
+         return result
+
+    db_api.insert_tracking_status(next_order_id,"In Progress")
+    return next_order_id
 
 
 def trackOrder(parameter:dict):

@@ -4,10 +4,10 @@ from fastapi import FastAPI
 from fastapi import Request
 from fastapi.responses import JSONResponse
 import db_api
-# import generic_helper
+import methods
 
 app = FastAPI()
-
+inprogress_orders = {}
 @app.post("/")
 async def handle_request(request: Request):
     # Retrieve the JSON data from the request
@@ -18,7 +18,7 @@ async def handle_request(request: Request):
     intent = payload['queryResult']['intent']['displayName']
     parameters = payload['queryResult']['parameters']
     output_contexts = payload['queryResult']['outputContexts']
-
+    session_id=methods.extract_session_id(output_contexts[0]["name"])
     intent_dict={
         'order.add:ongoing-order': addOrder,
     # 'order.remove - context: ongoing-order': remove_from_order,
@@ -26,20 +26,33 @@ async def handle_request(request: Request):
     'track.order:context-ordertracking': trackOrder
     }
 
-    return intent_dict[intent](parameters)
+    return intent_dict[intent](parameters,session_id)
 
-def addOrder(parameter:dict):
+def addOrder(parameter:dict,sessionId:str):
     food_items=parameter["food-item"]
     quantity=parameter["number"]
 
     if len(food_items)!=len(quantity):
-        fullfillment_text=f"please specify the quanity for each item !"
+        fulfillment_text=f"please specify the quanity for each item !"
     else:
-        fullfillment_text=f"Recieved order in backend"
+        new_order_dict=dict(zip(food_items, quantity))
+        if sessionId in inprogress_orders:
+            current_food_order=inprogress_orders[sessionId]
+            current_food_order.update(new_order_dict)
+            inprogress_orders[sessionId]=current_food_order
+        else:
+            inprogress_orders[sessionId]=new_order_dict
+
+        order_str = methods.get_str_from_food_dict(inprogress_orders[sessionId])
+        fulfillment_text = f"So far you have: {order_str}. Do you need anything else?"
 
     return JSONResponse(content={
-        "fulfillmentText":fullfillment_text
+        "fulfillmentText":fulfillment_text
     })
+
+def complete_order(parameters:dict,session_id:str):
+    
+
 
 def trackOrder(parameter:dict):
        order_id = int(parameter['number'])
@@ -53,3 +66,5 @@ def trackOrder(parameter:dict):
        return JSONResponse(content={
            "fulfillmentText": fulfillment_text
        })
+
+

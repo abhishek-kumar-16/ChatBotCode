@@ -20,8 +20,8 @@ async def handle_request(request: Request):
     output_contexts = payload['queryResult']['outputContexts']
     session_id=methods.extract_session_id(output_contexts[0]["name"])
     intent_dict={
-        'order.add:ongoing-order': addOrder,
-    # 'order.remove - context: ongoing-order': remove_from_order,
+    'order.add:ongoing-order': addOrder,
+    'order.remove:context:ongoing-order': remove_order,
     'order.complete:context:ongoing-order': complete_order,
     'track.order:context-ordertracking': trackOrder
     }
@@ -48,6 +48,37 @@ def addOrder(parameter:dict,sessionId:str):
 
     return JSONResponse(content={
         "fulfillmentText":fulfillment_text
+    })
+
+def remove_order(parameters:dict,session_id:str):
+    if session_id not in inprogress_orders:
+        fulfillment_text=f"Sorry, No exisiting order !"
+    else:
+        current_order=inprogress_orders[session_id]
+        food_items=parameters["food-item"]
+        removed_items=[]
+        no_such_item=[]
+        for item in food_items:
+            if item not in current_order:
+                no_such_item.append(item)
+            else:
+                removed_items.append(item)
+                del current_order[item]
+
+        if len(removed_items) > 0:
+            fulfillment_text = f'Removed {",".join(removed_items)} from your order!'
+
+        if len(no_such_item) > 0:
+            fulfillment_text = f' Your current order does not have {",".join(no_such_item)}'
+
+        if len(current_order.keys()) == 0:
+            fulfillment_text += " Your order is empty!"
+        else:
+            order_str = methods.get_str_from_food_dict(current_order)
+            fulfillment_text += f" Here is what is left in your order: {order_str}! Do you want anything else to add"
+
+    return JSONResponse(content={
+        "fulfillmentText": fulfillment_text
     })
 
 def complete_order(parameters:dict,session_id:str):
@@ -84,7 +115,7 @@ def save_to_db(order:dict):
     return next_order_id
 
 
-def trackOrder(parameter:dict):
+def trackOrder(parameter:dict,session_id:str):
        order_id = int(parameter['number'])
        status=db_api.get_order_status(order_id)
        print(status)
